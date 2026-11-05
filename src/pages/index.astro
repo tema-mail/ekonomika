@@ -1,0 +1,77 @@
+---
+import d from '../data/ekonomika.json';
+const rub = (n) => Math.round(n).toLocaleString('ru-RU') + ' ₽';
+const ch = (n) => String(n).replace('.', ',');
+const artem = d.mesyatsy.reduce((a, m) => a + m.artem, 0);
+const claude = d.mesyatsy.reduce((a, m) => a + m.claude, 0);
+const replik = d.mesyatsy.reduce((a, m) => a + m.replik, 0);
+const ocenka = (r) => (r == null ? ['', '–'] : r >= d.minimum_chas ? ['ok', 'выше минимума'] : r >= d.chas ? ['warn', 'ниже минимума'] : ['bad', 'ниже себестоимости']);
+const maxTip = Math.max(...Object.values(d.tipy));
+const proekty = d.proekty.filter((p) => p.chasy + p.claude > 0);
+---
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Экономика проектов</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f7f7f4;color:#151716;font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1180px;margin:auto;padding:28px 16px 64px}h1{font-size:30px;line-height:1.1;margin:0 0 6px}h2{font-size:20px;margin:40px 0 6px}
+.sub,.note{color:#5c6461;font-size:14px;margin:0 0 14px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:20px}
+.card{background:#fff;border:1px solid #dfe3e0;border-radius:10px;padding:14px}.card b{display:block;font-size:24px;line-height:1.2}.card span{font-size:13px;color:#5c6461}
+.wrap{overflow-x:auto;background:#fff;border:1px solid #dfe3e0;border-radius:10px}table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid #eceeec;white-space:nowrap;font-variant-numeric:tabular-nums}th{font-size:12px;font-weight:600;color:#5c6461;vertical-align:bottom;white-space:normal}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:#fff;white-space:normal;min-width:170px}tr:last-child td{border-bottom:0}
+.itogo td{font-weight:700;background:#f4f6f4}.child td{color:#5c6461}.ok{color:#176a3a}.warn{color:#96610a}.bad{color:#b3261e}
+.bar{display:grid;grid-template-columns:170px 1fr 56px;gap:10px;align-items:center;padding:5px 12px}.bar i{display:block;height:10px;background:#31685a;border-radius:3px}.bar em{font-style:normal;text-align:right;font-variant-numeric:tabular-nums}
+.bars{background:#fff;border:1px solid #dfe3e0;border-radius:10px;padding:8px 0}.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}ul{margin:8px 0;padding-left:20px}
+@media(max-width:760px){.cards{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}h1{font-size:25px}.bar{grid-template-columns:120px 1fr 48px}}
+</style>
+</head>
+<body><main id="ek">
+<h1>Экономика проектов</h1>
+<p class="sub">Собрано {d.sobrano}. Себестоимость часа {rub(d.chas)}, минимум продажи {rub(d.minimum_chas)}. Журнал команды снят {d.zhurnal_snyat}.</p>
+<div class="cards">
+<div class="card"><b>{ch(artem.toFixed(1))} ч</b><span>твоё время на команды в чатах, оценка</span></div>
+<div class="card"><b>{ch(claude.toFixed(1))} ч</b><span>работа Claude над задачами, параллельные чаты суммируются</span></div>
+<div class="card"><b>{ch(d.komanda_vsego)} ч</b><span>команда по журналу с 19.06</span></div>
+<div class="card"><b>{replik}</b><span>твоих реплик в чатах</span></div>
+</div>
+
+<h2>По месяцам: ты и Claude</h2>
+<div class="wrap"><table><thead><tr><th>Месяц</th><th>Твоё время, ч</th><th>Твоё время, себестоимость</th><th>Claude, ч</th><th>Реплик</th><th>Claude на час твоего времени</th></tr></thead><tbody>
+{d.mesyatsy.map((m) => <tr><td>{m.mes}</td><td>{ch(m.artem)}</td><td>{rub(m.artem * d.chas)}</td><td>{ch(m.claude)}</td><td>{m.replik}</td><td>{ch((m.claude / (m.artem || 1)).toFixed(1))}</td></tr>)}
+</tbody></table></div>
+<p class="note">Самый ранний чат в данных: {d.pervyy_den}, раньше данных нет. Подписки ≈{rub(d.podpiski_mes)} в месяц уже внутри часа, отдельно не прибавляются.</p>
+
+<h2>По проектам</h2>
+<div class="wrap"><table><thead><tr><th>Проект</th><th>Ты, ч</th><th>Claude, ч</th><th>Команда, ч</th><th>Себестоимость</th><th>Минимум по часам</th><th>Платежи с июня</th><th>₽ на час людей</th><th>Оценка</th></tr></thead><tbody>
+{proekty.map((p) => { const [c, t] = ocenka(p.rub_chas); return <tr class={p.name.startsWith('Сервис всего') ? 'itogo' : p.gruppa ? 'child' : ''}><td>{p.name}</td><td>{ch(p.artem)}</td><td>{ch(p.claude)}</td><td>{ch(p.komanda)}</td><td>{rub(p.sebest)}</td><td>{rub(p.minimum)}</td><td>{p.vyruchka ? rub(p.vyruchka) : '–'}</td><td class={c}>{p.rub_chas ? rub(p.rub_chas) : '–'}</td><td class={c}>{t}</td></tr>; })}
+</tbody></table></div>
+<ul class="note">
+<li>Себестоимость и минимум считаются по часам людей: ты и команда. Часы Claude показаны отдельно и в деньги не переводятся.</li>
+<li>«Сервис» в ДДС – это EV Sibir и TEYES Sibir вместе, поэтому деньги стоят только в итоговой строке. Журнальный «EV CARS» отнесён к EV Sibir, сверить.</li>
+<li>Платежи сопоставлены по названиям в ДДС. Прочерк значит, что совпадения нет или платёж шёл раньше июня (MDS). Часы Balance – по сайту, а платежи – за SEO.</li>
+</ul>
+
+<div class="two">
+<div><h2>Куда уходят часы команды</h2><div class="bars">{Object.entries(d.tipy).map(([k, v]) => <div class="bar"><span>{k}</span><i style={`width:${Math.round(v / maxTip * 100)}%`}></i><em>{ch(v)}</em></div>)}</div></div>
+<div><h2>Обслуживание: черновик тарифов</h2><div class="wrap"><table style="min-width:0"><thead><tr><th>Тариф</th><th>Часов</th><th>В месяц</th></tr></thead><tbody>{d.tarify.map((t) => <tr><td>{t.nazv}</td><td>{t.chasy}</td><td>{rub(t.rub)}</td></tr>)}</tbody></table></div><p class="note">Час сверх пакета {rub(d.chas_sverh)}. Ждёт решения.</p></div>
+</div>
+
+<h2>Нормы по типам работ</h2>
+<div class="wrap"><table><thead><tr><th>Тип</th><th>Часов людей</th><th>Себестоимость</th><th>Минимум</th><th>Статус нормы</th></tr></thead><tbody>
+{d.klassy.map((k) => <tr><td>{k.nazv}</td><td>{ch(k.chasy)}</td><td>{rub(k.sebest)}</td><td>{rub(k.minimum)}</td><td>{k.status}</td></tr>)}
+</tbody></table></div>
+<p class="note">Без запаса на гипотезы; смета в скилле добавляет к ним 25 %. Нормы со статусом «гипотеза» ещё не замерены.</p>
+
+<h2>Как считается время</h2>
+<ul class="note">
+<li><b>Claude:</b> от твоей реплики до последнего действия перед следующей; паузы внутри хода режутся до 10 минут.</li>
+<li><b>Ты, оценка:</b> минута на чтение плюс длина реплики из расчёта 100 знаков в минуту, но не больше паузы перед репликой и не больше 15 минут. Время вне чатов сюда не входит: созвоны, размышления, проверка глазами.</li>
+<li><b>Источники:</b> чаты мак {d.gde['мак'] ?? 0}, VPS {d.gde['VPS'] ?? 0}. Папки сессий Codex на маке нет, его время не учтено.</li>
+</ul>
+
+<h2>Чаты без проекта</h2>
+<div class="wrap"><table style="min-width:0"><thead><tr><th>Название</th><th>Ты, ч</th><th>Claude, ч</th></tr></thead><tbody>{d.bez_proekta.map((b) => <tr><td>{b.nazv}</td><td>{ch(b.artem)}</td><td>{ch(b.claude)}</td></tr>)}</tbody></table></div>
+</main></body></html>
